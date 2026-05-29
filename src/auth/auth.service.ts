@@ -2,6 +2,8 @@ import { Injectable, ConflictException, InternalServerErrorException, Unauthoriz
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import Redis from 'ioredis';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -13,13 +15,19 @@ interface JwtPayload {
 
 @Injectable()
 export class AuthService {
+  private readonly redis: Redis;
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) {
+    this.redis = new Redis(
+      this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379'
+    );
+  }
 
-  async register(dto: RegisterDto): Promise<{ message: string }> {
+  async register(dto: RegisterDto): Promise<{ message: string, accessToken: string, refreshToken: string }> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -32,7 +40,7 @@ export class AuthService {
     const [firstName, ...rest] = dto.name.trim().split(' ');
     const lastName = rest.length > 0 ? rest.join(' ') : undefined;
 
-    await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         password: hashedPassword,
@@ -41,7 +49,13 @@ export class AuthService {
       },
     });
 
-    return { message: 'Registration successful' };
+    const refreshToken = this.createRefreshToken(user.id, user.email);
+    await this.redis.set(`refresh:${user.id}`, refreshToken, 'EX', 7 * 24 * 60 * 60);
+    return {
+      message: 'Registration successful',
+      accessToken: await this.createAccessToken(user.id, user.email),
+      refreshToken,
+    };
   }
 
   async login(dto: LoginDto): Promise<{ accessToken: string; refreshToken: string }> {
@@ -58,30 +72,32 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const refreshToken = this.createRefreshToken(user.id, user.email);
+    await this.redis.set(`refresh:${user.id}`, refreshToken, 'EX', 7 * 24 * 60 * 60);
     return {
-      accessToken: this.createAccessToken(user.id, user.email),
-      refreshToken: this.createRefreshToken(user.id, user.email),
+      accessToken: await this.createAccessToken(user.id, user.email),
+      refreshToken,
     };
   }
 
   async refresh(refreshToken: string): Promise<{ accessToken: string }> {
     const payload = this.verifyRefreshToken(refreshToken);
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-    });
 
-    if (!user) {
-      throw new UnauthorizedException('Refresh token is invalid');
-    }
-
-    return { accessToken: this.createAccessToken(user.id, user.email) };
+    const stored = await this.redis.get(`refresh:${payload.sub}`);
+  if (!stored || stored !== refreshToken) {
+    throw new UnauthorizedException('Refresh token is invalid or expired');
   }
 
-  logout(_refreshToken: string): { message: string } {
+    return { accessToken: await this.createAccessToken(payload.sub, payload.email) };
+  }
+
+  async logout(_refreshToken: string): Promise<{ message: string; }> {
+    const payload = this.verifyRefreshToken(_refreshToken);
+    await this.redis.del(`refresh:${payload.sub}`);
     return { message: 'Logged out successfully' };
   }
 
-  private createAccessToken(userId: string, email: string): string {
+  private async createAccessToken(userId: string, email: string):  Promise<string> {
     return this.jwtService.sign(
       { sub: userId, email },
       {
