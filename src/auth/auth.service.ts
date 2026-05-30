@@ -2,7 +2,7 @@ import { Injectable, ConflictException, InternalServerErrorException, Unauthoriz
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import Redis from 'ioredis';
+import { RedisService as Redis } from '../redis/redis.service';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
@@ -15,17 +15,13 @@ interface JwtPayload {
 
 @Injectable()
 export class AuthService {
-  private readonly redis: Redis;
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-  ) {
-    this.redis = new Redis(
-      this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379'
-    );
-  }
+    private readonly redis: Redis,
+  ) {}
 
   async register(dto: RegisterDto): Promise<{ message: string, accessToken: string, refreshToken: string }> {
     const existingUser = await this.prisma.user.findUnique({
@@ -50,7 +46,7 @@ export class AuthService {
     });
 
     const refreshToken = this.createRefreshToken(user.id, user.email);
-    await this.redis.set(`refresh:${user.id}`, refreshToken, 'EX', 7 * 24 * 60 * 60);
+    await this.redis.setX(`refresh:${user.id}`, refreshToken, 7 * 24 * 60 * 60);
     return {
       message: 'Registration successful',
       accessToken: await this.createAccessToken(user.id, user.email),
@@ -73,7 +69,7 @@ export class AuthService {
     }
 
     const refreshToken = this.createRefreshToken(user.id, user.email);
-    await this.redis.set(`refresh:${user.id}`, refreshToken, 'EX', 7 * 24 * 60 * 60);
+    await this.redis.setX(`refresh:${user.id}`, refreshToken, 7 * 24 * 60 * 60);
     return {
       accessToken: await this.createAccessToken(user.id, user.email),
       refreshToken,
@@ -83,7 +79,7 @@ export class AuthService {
   async refresh(refreshToken: string): Promise<{ accessToken: string }> {
     const payload = this.verifyRefreshToken(refreshToken);
 
-    const stored = await this.redis.get(`refresh:${payload.sub}`);
+    const stored = await this.redis.getX(`refresh:${payload.sub}`);
   if (!stored || stored !== refreshToken) {
     throw new UnauthorizedException('Refresh token is invalid or expired');
   }
@@ -93,7 +89,7 @@ export class AuthService {
 
   async logout(_refreshToken: string): Promise<{ message: string; }> {
     const payload = this.verifyRefreshToken(_refreshToken);
-    await this.redis.del(`refresh:${payload.sub}`);
+    await this.redis.delX(`refresh:${payload.sub}`);
     return { message: 'Logged out successfully' };
   }
 
