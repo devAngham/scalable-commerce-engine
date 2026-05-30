@@ -14,7 +14,7 @@ import { RedisModule } from '../redis/redis.module';
     RedisModule,
     ConfigModule,
     JwtModule.registerAsync({
-      imports: [ConfigModule],
+      imports: [ConfigModule, RedisModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get('JWT_ACCESS_SECRET'),
