@@ -78,6 +78,35 @@ export class AuthService {
     };
   }
 
+  async verifyEmail(email: string, code: string): Promise<{ message: string }> {
+    const storedCode = await this.redis.getX(`email-verification:${email}`);
+    if (!storedCode || storedCode !== code) {
+      throw new UnauthorizedException('Invalid or expired verification code');
+    }
+    await this.prisma.user.update({
+      where: { email },
+      data: { isEmailVerified: true },
+    });
+    await this.redis.delX(`email-verification:${email}`);
+    return { message: 'Email verified successfully' };
+  }
+
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (!user) {
+      throw new UnauthorizedException('Email not registered');
+    }
+    if (user.isEmailVerified) {
+      return { message: 'Email is already verified' };
+    }
+    const code = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    await this.redis.setX(`email-verification:${email}`, code, 10 * 60);
+    await this.emailService.sendEmailVerification(email, code);
+    return { message: 'Verification code resent' };
+  }
+
   async refresh(refreshToken: string): Promise<{ accessToken: string }> {
     const payload = this.verifyRefreshToken(refreshToken);
 
