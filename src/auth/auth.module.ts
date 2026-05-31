@@ -7,6 +7,8 @@ import { AuthController } from './auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
 import { EmailModule } from '../email/email.module';
+import { JwtStrategy } from '../common/guards/jwt.strategy';
+import { PassportModule } from '@nestjs/passport';
 
 
 @Module({
@@ -15,6 +17,7 @@ import { EmailModule } from '../email/email.module';
     RedisModule,
     ConfigModule,
     EmailModule,
+    PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule, RedisModule],
       inject: [ConfigService],
@@ -25,7 +28,7 @@ import { EmailModule } from '../email/email.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}
