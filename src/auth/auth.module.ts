@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
+import { EmailModule } from '../email/email.module';
 
 
 @Module({
@@ -13,6 +14,7 @@ import { RedisModule } from '../redis/redis.module';
     PrismaModule,
     RedisModule,
     ConfigModule,
+    EmailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule, RedisModule],
       inject: [ConfigService],

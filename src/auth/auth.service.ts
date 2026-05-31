@@ -7,6 +7,7 @@ import { RedisService as Redis } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { EmailService } from '../email/email.service';
 
 interface JwtPayload {
   sub: string;
@@ -21,9 +22,10 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly redis: Redis,
+    private readonly emailService: EmailService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ message: string, accessToken: string, refreshToken: string }> {
+  async register(dto: RegisterDto): Promise<{ message: string }> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -45,12 +47,12 @@ export class AuthService {
       },
     });
 
-    const refreshToken = this.createRefreshToken(user.id, user.email);
-    await this.redis.setX(`refresh:${user.id}`, refreshToken, 7 * 24 * 60 * 60);
+    const code = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    await this.redis.setX(`email-verification:${dto.email}`, code, 10 * 60);
+    await this.emailService.sendEmailVerification(dto.email, code);
+
     return {
       message: 'Registration successful',
-      accessToken: await this.createAccessToken(user.id, user.email),
-      refreshToken,
     };
   }
 
