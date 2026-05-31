@@ -18,6 +18,16 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('verify-email')
+  verifyEmail(@Body() dto: { email: string; code: string }) {
+    return this.authService.verifyEmail(dto.email, dto.code);
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() dto: { email: string }) {
+    return this.authService.resendVerification(dto.email);
+  }
+
   @Post('refresh')
   refresh(@Body() dto: TokenDto) {
     return this.authService.refresh(dto.refreshToken);

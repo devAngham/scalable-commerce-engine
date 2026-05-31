@@ -25,6 +25,7 @@ model User {
   password   String
   firstName  String?
   lastName   String?
+  isEmailVerified Boolean @default(false)
   role       UserRole    @default(CUSTOMER)
   orders     Order[]
   cartItems  CartItem[]
