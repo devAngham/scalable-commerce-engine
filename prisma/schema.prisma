@@ -49,6 +49,9 @@ model Product {
   description String?
   price       Float
   sku         String?     @unique
+  stock       Int         @default(0)
+  images      String[]
+  isActive    Boolean     @default(true)
   category    Category    @relation(fields: [categoryId], references: [id])
   categoryId  String
   orderItems  OrderItem[]
