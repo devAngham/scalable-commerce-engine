@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Post, Get, Param, UseGuards } from "@nestjs/common";
 
 import { CreateProductDto } from "./dto/create-product.dto";
 import { ProductsService } from "./products.service";
@@ -17,7 +17,16 @@ export class ProductsController {
 @Roles(Role.ADMIN, Role.SELLER)
 @Post()
 create(@Body() createProductDto: CreateProductDto) {
-	this.productsService.createProduct(createProductDto);
-	return "Product created successfully";
+	return this.productsService.createProduct(createProductDto);
+}
+
+@Get()
+findAll() {
+	return this.productsService.findAll();
+}
+
+@Get(':id')
+findOne(@Param('id') id: string) {
+	return this.productsService.findOne(id);
 }
 }
