@@ -44,6 +44,12 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @Throttle({
+    default: {
+      ttl: 600000, // 3 tries per 10 minutes
+      limit: 3,
+    },
+  })
   resendVerification(@Body() dto: { email: string }) {
     return this.authService.resendVerification(dto.email);
   }
