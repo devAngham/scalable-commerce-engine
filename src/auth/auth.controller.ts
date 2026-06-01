@@ -4,6 +4,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { TokenDto } from './dto/token.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler/dist';
 
 @Controller('auth')
 export class AuthController {
@@ -16,11 +17,23 @@ export class AuthController {
   }
 
   @Post('register')
+  @Throttle({
+    default: {
+      ttl: 60000,
+      limit: 10,
+    },
+  })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Post('login')
+  @Throttle({
+    default: {
+      ttl: 60000,
+      limit: 5,
+    },
+  })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
@@ -31,6 +44,12 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @Throttle({
+    default: {
+      ttl: 600000, // 3 tries per 10 minutes
+      limit: 3,
+    },
+  })
   resendVerification(@Body() dto: { email: string }) {
     return this.authService.resendVerification(dto.email);
   }

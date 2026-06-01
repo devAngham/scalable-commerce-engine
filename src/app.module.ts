@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -23,6 +26,12 @@ import { CommonModule } from './common/common.module';
       redis: config.get<string>('REDIS_URL'),
     }),
   }),
+    ThrottlerModule.forRoot([
+        {
+          ttl: 60000,
+          limit: 100,
+        }
+      ]),
     AuthModule,
     UsersModule,
     ProductsModule,
@@ -33,6 +42,12 @@ import { CommonModule } from './common/common.module';
     PrismaModule,
     RedisModule,
     CommonModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
