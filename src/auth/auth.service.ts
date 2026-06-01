@@ -70,6 +70,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException('Please verify your email first');
+    }
+
     const refreshToken = this.createRefreshToken(user.id, user.email);
     await this.redis.setX(`refresh:${user.id}`, refreshToken, 7 * 24 * 60 * 60);
     return {
