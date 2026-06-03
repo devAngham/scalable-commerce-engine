@@ -16,6 +16,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { CommonModule } from './common/common.module';
 import { CategoriesModule } from './categories/categories.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CategoriesModule } from './categories/categories.module';
     UsersModule,
     ProductsModule,
     CategoriesModule,
+    UploadModule,
     OrdersModule,
     PaymentsModule,
     NotificationsModule,
