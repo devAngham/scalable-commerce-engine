@@ -3,17 +3,23 @@ import { CreateProductDto } from "./dto/create-product.dto";
 import { PrismaService } from "../prisma/prisma.service"; 
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { RedisService } from "../redis/redis.service";
+import { SearchService } from "../search/search.service";
 
 @Injectable()
 export class ProductsService {
 
-  constructor(private prisma: PrismaService, private redisService: RedisService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redisService: RedisService,
+    private searchService: SearchService
+  ) {}
 
   async createProduct( dto: CreateProductDto ): Promise<{ product: any }> {
     const product = await this.prisma.product.create({
       data: dto
     });
     await this.redisService.deletePattern(`products:all`);
+    await this.searchService.indexProduct(product);
     return { product };
   }
 
@@ -60,6 +66,7 @@ export class ProductsService {
     });
     await this.redisService.delX(`product:${updatedProduct.id}`);
     await this.redisService.deletePattern(`products:all`); // Invalidate the all products cache
+    await this.searchService.indexProduct(updatedProduct);
     return { product: updatedProduct };
   }
 
@@ -79,6 +86,7 @@ export class ProductsService {
   });
 
   await this.redisService.deletePattern(`products:all`); // Invalidate the all products cache
+  await this.searchService.removeProduct(id);
   return { message: `Product with id ${id} has been deactivated` };
 }
 }
