@@ -37,6 +37,21 @@ export class CartService {
       });
     }
     await this.redisService.delX(cartKey);
-    // await this.redisService.delX(`cart:${userId}:items`);
+  }
+
+  async getCart(userId: string): Promise <{cart: any[]}> {
+    const cartKey = `cart:${userId}`;
+
+    const cached = await this.redisService.getX(cartKey);
+    if (cached) {
+      return { cart: JSON.parse(cached) };
+    }
+
+    const cartItems = await this.prisma.cartItem.findMany({
+      where: { userId },
+      include: { product: true }
+    });
+    await this.redisService.setX(cartKey, JSON.stringify(cartItems), 60 * 60);
+    return { cart: cartItems }
   }
 }
