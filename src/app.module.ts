@@ -17,6 +17,7 @@ import { RedisModule } from './redis/redis.module';
 import { CommonModule } from './common/common.module';
 import { CategoriesModule } from './categories/categories.module';
 import { UploadModule } from './upload/upload.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { UploadModule } from './upload/upload.module';
     PrismaModule,
     RedisModule,
     CommonModule,
+    SearchModule,
   ],
   providers: [
     {

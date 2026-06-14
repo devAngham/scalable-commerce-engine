@@ -56,4 +56,21 @@ export class SearchService implements OnModuleInit {
 		})
 		.catch(err => () => null); 
 	}
+
+	async searchProducts(query: string) {
+		const hits = await this.elasticsearchService.search({
+			index: this.index,
+			query: {
+				multi_match: {
+					query: query,
+					fields: ['name', 'description'],
+					fuzziness: 'AUTO', // Enables typo-tolerant matching via Levenshtein edit distance (e.g. "ifone" → "iphone")
+				}
+			}
+		});
+		return hits?.hits?.hits.map(hit => ({
+			id: hit._id,
+			...(hit._source as object),
+		})) || [];
+	}
 }
