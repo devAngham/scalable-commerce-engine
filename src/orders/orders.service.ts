@@ -24,23 +24,27 @@ export class OrdersService {
     let totalPrice = 0;
 
     const order = await this.prisma.$transaction( async (tx) => {
+
+      const newOrder = await tx.order.create({
+        data: { userId, total: totalPrice, status: 'PENDING' }
+      })
+
       for (const item of cart) {
       if (!item.product.isActive) {
         throw new BadRequestException(`Product ${item.product.name} is no longer available`);
       }
 
-      if (item.product.stock < item.quantity) {
+      const locked = await tx.$queryRaw<{stock: number }[]>`
+        SELECT stock FROM "Product" WHERE id = ${item.productId} FOR UPDATE
+      `;
+      const currentStock = locked[0].stock;
+
+      if (currentStock < item.quantity) {
         throw new BadRequestException(`Not enough stock for ${item.product.name}`);
       }
 
       totalPrice += item.product.price * item.quantity;
-    }
 
-    const newOrder = await tx.order.create({
-      data: { userId, total: totalPrice, status: 'PENDING' }
-    })
-
-    for (const item of cart) {
       await tx.orderItem.create({
         data: {
           orderId: newOrder.id,
@@ -51,18 +55,29 @@ export class OrdersService {
       })
        await tx.product.update(
         { where: { id: item.productId },
-        data: { stock: item.product.stock - item.quantity}
+        data: { stock: currentStock - item.quantity}
       });
     }
+    await tx.order.update({
+      where: { id: newOrder.id },
+      data: { total: totalPrice },
+    });
+
     await tx.cartItem.deleteMany({ where: { userId } });
+
+    newOrder.total = totalPrice;
     return newOrder;
   });
+
   await this.redisService.delX(`cart:${userId}`);
   await this.redisService.deletePattern('products:all');
+
   for (const item of cart) {
     await this.redisService.delX(`product:${item.productId}`);
   }
+
   return { order };
+
   }
 
 }
