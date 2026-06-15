@@ -82,4 +82,20 @@ export class CartService {
 
     await this.redisService.delX(`cart:${userId}`);
   }
+
+  async removeFromCart(userId: string, productId: string) : Promise <void> {
+    const existCart = await this.prisma.cartItem.findUnique(
+      { where: { userId_productId: { userId, productId }} }
+    );
+
+    if (!existCart) {
+      throw new NotFoundException('Item not found in cart');
+    }
+
+    await this.prisma.cartItem.delete(
+      { where: { userId_productId: { userId, productId }}}
+    );
+
+    await this.redisService.delX(`cart:${userId}`);
+  }
 }
