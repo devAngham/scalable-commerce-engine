@@ -18,6 +18,7 @@ import { CommonModule } from './common/common.module';
 import { CategoriesModule } from './categories/categories.module';
 import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
+import { CartModule } from './cart/cart.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SearchModule } from './search/search.module';
     RedisModule,
     CommonModule,
     SearchModule,
+    CartModule,
   ],
   providers: [
     {

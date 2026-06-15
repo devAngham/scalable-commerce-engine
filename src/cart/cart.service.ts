@@ -54,4 +54,32 @@ export class CartService {
     await this.redisService.setX(cartKey, JSON.stringify(cartItems), 60 * 60);
     return { cart: cartItems }
   }
+
+  async updateCart(userId: string, productId: string, quantity: number): Promise<void> {
+    const exsistCart = await this.prisma.cartItem.findUnique({
+      where: { userId_productId: { userId, productId } }
+    });
+    if (!exsistCart) {
+      throw new NotFoundException(`Item not found in cart`);
+    }
+
+    const product = await this.prisma.product.findUnique(
+      { where: { id: productId }}
+    );
+
+    if (!product) {
+      throw new NotFoundException(`Product ${productId} not found`);
+    }
+
+    if (product.stock < quantity) {
+      throw new BadRequestException(`Insufficient stock for product ${productId}`);
+    }
+
+    await this.prisma.cartItem.update({
+      where: { id: exsistCart.id },
+      data: { quantity }
+    });
+
+    await this.redisService.delX(`cart:${userId}`);
+  }
 }

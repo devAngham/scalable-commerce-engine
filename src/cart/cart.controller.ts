@@ -1,4 +1,4 @@
-import { Body, Request, Controller, Post, UseGuards } from "@nestjs/common";
+import { Body, Request, Controller, Post, UseGuards, Get, Patch } from "@nestjs/common";
 
 import { AddToCartDto } from "./dto/add-to-cart.dto";
 import { CartService } from "./cart.service";
@@ -18,5 +18,21 @@ export class CartController {
       req.user.id,
       addToCart.productId,
       addToCart.quantity)
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  get(@Request() req: any) {
+    return this.cartService.getCart(req.user.id)
+  }
+
+  @Patch()
+  @UseGuards(JwtAuthGuard)
+  update(@Body() addToCart: AddToCartDto, @Request() req: any) {
+    return this.cartService.updateCart(
+      req.user.id,
+      addToCart.productId,
+      addToCart.quantity
+    )
   }
 }
