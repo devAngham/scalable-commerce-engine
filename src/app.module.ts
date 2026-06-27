@@ -9,7 +9,6 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
-import { PaymentsModule } from './payments/payments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AiModule } from './ai/ai.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -19,6 +18,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
 import { CartModule } from './cart/cart.module';
+import { PaymentModule } from './payments/payment.module';
 
 @Module({
   imports: [
@@ -42,7 +42,7 @@ import { CartModule } from './cart/cart.module';
     CategoriesModule,
     UploadModule,
     OrdersModule,
-    PaymentsModule,
+    PaymentModule,
     NotificationsModule,
     AiModule,
     PrismaModule,
