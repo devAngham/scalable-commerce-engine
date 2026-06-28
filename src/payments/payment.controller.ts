@@ -1,4 +1,4 @@
-import { Request, Body, Controller, Post } from "@nestjs/common";
+import { Request, Body, Headers, Controller, Post } from "@nestjs/common";
 import { PaymentService } from "./payment.service";
 
 @Controller('payment')
@@ -13,5 +13,10 @@ export class PaymentController {
     return this.paymentService.createPaymentIndent(
       body.orderId,
     )
+  }
+
+  @Post('/webhook')
+  verifyPayment(@Request() req:any, @Headers('stripe-signature') signature: string) {
+    return this.paymentService.verifyPayment(req.body, signature)
   }
 }

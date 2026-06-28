@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 import Stripe from 'stripe';
@@ -30,7 +30,44 @@ export class PaymentService {
       amount: Math.round(total * 100),
       currency: 'usd',
       metadata: { orderId: id },
+      automatic_payment_methods: {
+      enabled: true,
+      allow_redirects: 'never',   // يمنع طرق الدفع اللي تحتاج redirect
+    },
     });
     return { clientSecret: result.client_secret }
+  }
+
+  async verifyPayment(raw: any, signatureHeader: string) {
+    let result;
+    try {
+      result = await this.stripe.webhooks.constructEvent(
+        raw,
+        signatureHeader,
+        this.config.get<string>('STRIPE_WEBHOOK_SECRET')!
+      );
+      } catch (err) {
+      throw new BadRequestException(`Webhook signature verification failed`);
+    }
+
+      const paymentIntent = result.data.object as any;
+      const orderId = paymentIntent.metadata?.orderId;
+
+      if (result.type === 'payment_intent.succeeded') {
+        await this.prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'COMPLETED' }
+        });
+      }
+
+      if (result.type === 'payment_intent.payment_failed') {
+        await this.prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'CANCELLED' }
+        });
+      }
+      return { received: true };
+    
+    
   }
 }
