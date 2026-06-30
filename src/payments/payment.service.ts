@@ -70,17 +70,40 @@ export class PaymentService {
       }
 
       if (result.type === 'payment_intent.payment_failed') {
-        await this.prisma.order.update({
+
+        const order = await this.prisma.order.findUnique({
+        where: { id: orderId }
+      });
+
+      if (!order) return { received: true };
+
+        const newAttempts = order.paymentAttempts + 1;
+
+      if (newAttempts >= 3) {
+        await this.prisma.$transaction(async (tx) => {
+        await tx.order.update({
           where: { id: orderId },
-          data: { status: 'CANCELLED' }
+          data: { status: 'CANCELLED', paymentAttempts: newAttempts },
         });
+
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId },
+        });
+
+        for (const item of orderItems) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      });
+      } else  {
+          await this.prisma.order.update({
+            where: { id: orderId },
+            data: { status: 'PENDING', paymentAttempts: newAttempts  }
+          });
+        }
       }
-      return { received: true };
+  return { received: true };
 }
 }
-
-
-// await this.prisma.order.update({
-//         where: { id: orderId },
-//         data: { paymentAttempts: paymentAttempts =+ 1 }
-//       })
