@@ -70,6 +70,7 @@ model Order {
   status     OrderStatus  @default(PENDING)
   total      Float        @default(0)
   items      OrderItem[]
+  paymentAttempts Int @default(0)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 }

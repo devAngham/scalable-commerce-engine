@@ -25,7 +25,16 @@ export class PaymentService {
       throw new NotFoundException('Order not exist');
     }
 
-    const { total, id } = existOrder;
+    let { total, id, status, paymentAttempts } = existOrder;
+
+    if (status === 'COMPLETED') {
+      throw new BadRequestException('Order already completed');
+    }
+
+    if (status === 'CANCELLED') {
+      throw new BadRequestException('Order was cancelled — please create a new order');
+    }
+    
     const result = await this.stripe.paymentIntents.create({
       amount: Math.round(total * 100),
       currency: 'usd',
@@ -33,7 +42,7 @@ export class PaymentService {
       automatic_payment_methods: {
       enabled: true,
       allow_redirects: 'never',   // يمنع طرق الدفع اللي تحتاج redirect
-    },
+        },
     });
     return { clientSecret: result.client_secret }
   }
@@ -67,7 +76,11 @@ export class PaymentService {
         });
       }
       return { received: true };
-    
-    
-  }
 }
+}
+
+
+// await this.prisma.order.update({
+//         where: { id: orderId },
+//         data: { paymentAttempts: paymentAttempts =+ 1 }
+//       })
