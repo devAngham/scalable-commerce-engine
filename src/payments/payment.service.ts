@@ -25,7 +25,16 @@ export class PaymentService {
       throw new NotFoundException('Order not exist');
     }
 
-    const { total, id } = existOrder;
+    let { total, id, status } = existOrder;
+
+    if (status === 'COMPLETED') {
+      throw new BadRequestException('Order already completed');
+    }
+
+    if (status === 'CANCELLED') {
+      throw new BadRequestException('Order was cancelled — please create a new order');
+    }
+    
     const result = await this.stripe.paymentIntents.create({
       amount: Math.round(total * 100),
       currency: 'usd',
@@ -33,7 +42,7 @@ export class PaymentService {
       automatic_payment_methods: {
       enabled: true,
       allow_redirects: 'never',   // يمنع طرق الدفع اللي تحتاج redirect
-    },
+        },
     });
     return { clientSecret: result.client_secret }
   }
@@ -61,13 +70,38 @@ export class PaymentService {
       }
 
       if (result.type === 'payment_intent.payment_failed') {
-        await this.prisma.order.update({
+
+        const order = await this.prisma.order.findUnique({
+        where: { id: orderId }
+      });
+
+      if (!order || order.status !== 'PENDING') return { received: true };
+        const newAttempts = order.paymentAttempts + 1;
+      if (newAttempts >= 3) {
+        await this.prisma.$transaction(async (tx) => {
+        await tx.order.update({
           where: { id: orderId },
-          data: { status: 'CANCELLED' }
+          data: { status: 'CANCELLED', paymentAttempts: newAttempts },
         });
+
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId },
+        });
+
+        for (const item of orderItems) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      });
+      } else  {
+          await this.prisma.order.update({
+            where: { id: orderId },
+            data: { status: 'PENDING', paymentAttempts: newAttempts  }
+          });
+        }
       }
-      return { received: true };
-    
-    
-  }
+  return { received: true };
+}
 }
