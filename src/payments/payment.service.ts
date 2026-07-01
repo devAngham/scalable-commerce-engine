@@ -25,7 +25,7 @@ export class PaymentService {
       throw new NotFoundException('Order not exist');
     }
 
-    let { total, id, status, paymentAttempts } = existOrder;
+    let { total, id, status } = existOrder;
 
     if (status === 'COMPLETED') {
       throw new BadRequestException('Order already completed');
@@ -75,10 +75,8 @@ export class PaymentService {
         where: { id: orderId }
       });
 
-      if (!order) return { received: true };
-
+      if (!order || order.status !== 'PENDING') return { received: true };
         const newAttempts = order.paymentAttempts + 1;
-
       if (newAttempts >= 3) {
         await this.prisma.$transaction(async (tx) => {
         await tx.order.update({
