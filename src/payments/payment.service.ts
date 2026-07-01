@@ -65,7 +65,7 @@ export class PaymentService {
       if (result.type === 'payment_intent.succeeded') {
         await this.prisma.order.update({
           where: { id: orderId },
-          data: { status: 'COMPLETED' }
+          data: { status: 'COMPLETED', paymentIntentId: paymentIntent.id }
         });
       }
 
@@ -102,6 +102,46 @@ export class PaymentService {
           });
         }
       }
-  return { received: true };
-}
+    return { received: true };
+  }
+
+  async refundPayment(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId }
+    });
+    if (!order) {
+      throw new NotFoundException('Order not exist');
+    }
+    if (order.status !== 'COMPLETED' || !order.paymentIntentId) {
+      throw new BadRequestException('Only completed orders can be refunded');
+    }
+
+    const refund = await this.stripe.refunds.create({
+      payment_intent: order.paymentIntentId,
+    });
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: 'REFUNDED' }
+    });
+
+    // Restore stock for each item — the refunded order's products return to inventory
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: { status: 'REFUNDED' },
+      });
+
+      const orderItems = await tx.orderItem.findMany({
+        where: { orderId },
+      });
+
+      for (const item of orderItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+    });
+    return { message: 'Order refunded successfully', refundId: refund.id };
+  }
 }
