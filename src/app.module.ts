@@ -19,6 +19,7 @@ import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
 import { CartModule } from './cart/cart.module';
 import { PaymentModule } from './payments/payment.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { PaymentModule } from './payments/payment.module';
     CommonModule,
     SearchModule,
     CartModule,
+    EventsModule
   ],
   providers: [
     {
