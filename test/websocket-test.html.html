@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  const socket = io('http://localhost:3000', {
+    auth: { token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxYmI0YWJiNy1hOTBkLTQ1YWQtYjgyNS01NjIwNjQ0MTJlNjciLCJlbWFpbCI6InRlc3Q0QHRlc3QuY29tIiwiaWF0IjoxNzgzODA2MDg3LCJleHAiOjE3ODM4MDY5ODd9.4o0rloXOsf_-e1FpSUkxVnAR5pYEYp8AVBuZ1pCaPgU' }
+  });
+  socket.on('connect', () => console.log('Connected!', socket.id));
+  socket.on('disconnect', () => console.log('Disconnected'));
+</script>
+</body>
+</html>
