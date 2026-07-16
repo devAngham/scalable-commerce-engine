@@ -1,13 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { OrderStatus } from "@prisma/client";
+
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
+import { EventsGateway } from "../events/events.gateway";
 
 @Injectable()
 export class OrdersService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly eventsGateway: EventsGateway
   ){}
 
   async checkout(userId: string): Promise <{ order: any }> {
@@ -80,4 +84,29 @@ export class OrdersService {
 
   }
 
+  async updateOrderStatus(
+    orderId: string,
+    status: OrderStatus,
+  ): Promise<{ order: any }> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: status as OrderStatus },
+    });
+
+    this.eventsGateway.server
+    .to(`user-${order.userId}`)
+    .emit('orderStatusUpdated', {
+      orderId: updatedOrder.id,
+      status: updatedOrder.status,
+    });
+
+    return { order: updatedOrder };
+  }
 }
