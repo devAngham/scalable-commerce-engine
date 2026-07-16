@@ -24,12 +24,13 @@ export class OrdersController {
     return this.ordersService.checkout(req.user.id);
   }
 
-  @Patch('orders/:id/status')
+  @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
   @Roles(Role.ADMIN)
   updateOrderStatus(
-    @Body() body: UpdateOrderStatusDto & { orderId: string },
+    @Param('id') id: string,
+    @Body() body: UpdateOrderStatusDto,
   ) {
-    return this.ordersService.updateOrderStatus(body.orderId, body.status);
+    return this.ordersService.updateOrderStatus(id, body.status);
   }
 }
