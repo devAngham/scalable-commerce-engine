@@ -57,4 +57,6 @@ export class AiService {
       recommendations: completion.choices[0].message.content,
     };
 
+  }
+  
 }
