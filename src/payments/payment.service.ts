@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
+import { NotificationsService } from '../notifications/notifications.service';
 
 
 @Injectable()
@@ -12,7 +13,8 @@ export class PaymentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ){
     this.stripe = new Stripe(this.config.get<string>('STRIPE_SECRET_KEY')!)
   }
@@ -63,9 +65,14 @@ export class PaymentService {
       const orderId = paymentIntent.metadata?.orderId;
 
       if (result.type === 'payment_intent.succeeded') {
-        await this.prisma.order.update({
+        const order = await this.prisma.order.update({
           where: { id: orderId },
           data: { status: 'COMPLETED', paymentIntentId: paymentIntent.id }
+        });
+        this.notificationsService.sendNotification(order.userId, {
+          title: 'Payment Successful',
+          message: 'Your order has been paid successfully.',
+          type: 'PAYMENT_SUCCESS'
         });
       }
 
@@ -95,10 +102,25 @@ export class PaymentService {
           });
         }
       });
+
+      this.notificationsService.sendNotification(order.userId, {
+        title: 'Order Updated',
+        message: `
+          Your order was cancelled after 3 failed payment attempts.
+          Please create a new order to try again.
+        `,
+        type: 'ORDER_UPDATE',
+      });
+
       } else  {
           await this.prisma.order.update({
             where: { id: orderId },
             data: { status: 'PENDING', paymentAttempts: newAttempts  }
+          });
+          this.notificationsService.sendNotification(order.userId, {
+            title: 'Order Updated',
+            message: `Your order status changed to ${newAttempts >= 3 ? 'CANCELLED' : 'PENDING'}.`,
+            type: 'ORDER_UPDATE',
           });
         }
       }
@@ -119,9 +141,11 @@ export class PaymentService {
     const refund = await this.stripe.refunds.create({
       payment_intent: order.paymentIntentId,
     });
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: { status: 'REFUNDED' }
+
+    this.notificationsService.sendNotification(order.userId, {
+      title: 'Order Refunded',
+      message: 'Your order has been refunded successfully.',
+      type: 'ORDER_REFUND',
     });
 
     // Restore stock for each item — the refunded order's products return to inventory
