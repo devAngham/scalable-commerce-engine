@@ -10,6 +10,7 @@
   socket.on('orderStatusUpdated', (data) => {
     console.log('Order status updated:', data);
   });
+  socket.on('notification', (data) => console.log('Notification:', data));
   socket.on('disconnect', () => console.log('Disconnected'));
 </script>
 </body>
