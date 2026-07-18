@@ -26,7 +26,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: any) {
    try {
-      console.log(555, client);
       console.log(`Client connected: ${client.id}`);
       const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
       if (!token) {
