@@ -15,8 +15,8 @@ export class SearchController {
   ) {
     return this.searchService.searchProducts(
       query,
-      minPrice ? Number(minPrice) : undefined,
-      maxPrice ? Number(maxPrice) : undefined,
+      minPrice ? Math.round(Number(minPrice) * 100) : undefined,
+      maxPrice ? Math.round(Number(maxPrice) * 100) : undefined,
       categoryId,
     );
   }

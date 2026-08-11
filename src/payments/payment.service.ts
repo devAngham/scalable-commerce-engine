@@ -27,7 +27,7 @@ export class PaymentService {
       throw new NotFoundException('Order not exist');
     }
 
-    let { total, id, status } = existOrder;
+    let { totalCents, id, status } = existOrder;
 
     if (status === 'COMPLETED') {
       throw new BadRequestException('Order already completed');
@@ -38,7 +38,7 @@ export class PaymentService {
     }
     
     const result = await this.stripe.paymentIntents.create({
-      amount: Math.round(total * 100),
+      amount: totalCents,
       currency: 'usd',
       metadata: { orderId: id },
       automatic_payment_methods: {

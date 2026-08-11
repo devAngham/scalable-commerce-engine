@@ -1,5 +1,6 @@
 import {
   IsString,
+  IsInt,
   IsNumber,
   IsOptional,
   IsBoolean,
@@ -15,9 +16,9 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
-  @IsNumber()
-  @Min(0)
-  price!: number;
+  @IsInt()
+  @Min(1)
+  priceCents!: number;
 
   @IsOptional()
   @IsString()

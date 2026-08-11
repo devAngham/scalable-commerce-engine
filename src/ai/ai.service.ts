@@ -32,7 +32,7 @@ export class AiService {
 
   const purchasedProducts = orders
     .flatMap(o => o.items)
-    .map(i => `${i.product.name} ($${i.product.price})`)
+    .map(i => `${i.product.name} ($${(i.product.priceCents / 100).toFixed(2)})`)
     .join(', ');
 
     const completion = await this.groq.chat.completions.create({
@@ -78,9 +78,9 @@ export class AiService {
         },
         {
           role: 'user',
-          content: `A customer is viewing: ${product.name} 
+          content: `A customer is viewing: ${product.name}
                     Category: ${product.category.name}
-                    Price: $${product.price}
+                    Price: $${(product.priceCents / 100).toFixed(2)}
                     Description: ${product.description}
                     Suggest 3 similar or complementary products. Be specific and brief.`,
         },

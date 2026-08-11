@@ -25,12 +25,12 @@ export class OrdersService {
       throw new NotFoundException('Cart is empty')
     }
 
-    let totalPrice = 0;
+    let totalCents = 0;
 
     const order = await this.prisma.$transaction( async (tx) => {
 
       const newOrder = await tx.order.create({
-        data: { userId, total: totalPrice, status: 'PENDING' }
+        data: { userId, totalCents, status: 'PENDING' }
       })
 
       for (const item of cart) {
@@ -47,14 +47,14 @@ export class OrdersService {
         throw new BadRequestException(`Not enough stock for ${item.product.name}`);
       }
 
-      totalPrice += item.product.price * item.quantity;
+      totalCents += item.product.priceCents * item.quantity;
 
       await tx.orderItem.create({
         data: {
           orderId: newOrder.id,
           productId: item.productId,
           quantity: item.quantity,
-          price: item.product.price,
+          priceCents: item.product.priceCents,
         }
       })
        await tx.product.update(
@@ -64,12 +64,12 @@ export class OrdersService {
     }
     await tx.order.update({
       where: { id: newOrder.id },
-      data: { total: totalPrice },
+      data: { totalCents },
     });
 
     await tx.cartItem.deleteMany({ where: { userId } });
 
-    newOrder.total = totalPrice;
+    newOrder.totalCents = totalCents;
     return newOrder;
   });
 
