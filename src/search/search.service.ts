@@ -20,7 +20,7 @@ export class SearchService implements OnModuleInit {
 							name: { type: 'text' },
 							createdAt: { type: 'date' },
 							description: { type: 'text' },
-							price: { type: 'float' },
+							priceCents: { type: 'integer' },
 							stock: { type: 'integer' },
 							isActive: { type: 'boolean' },
 							categoryId: { type: 'keyword' }
@@ -41,7 +41,7 @@ export class SearchService implements OnModuleInit {
 				name: product.name,
 				createdAt: product.createdAt,
 				description: product.description,
-				price: product.price,
+				priceCents: product.priceCents,
 				stock: product.stock,
 				isActive: product.isActive,
 				categoryId: product.categoryId,
@@ -59,8 +59,8 @@ export class SearchService implements OnModuleInit {
 
 	async searchProducts(
 		query: string,
-		minPrice?: number,
-		maxPrice?: number,
+		minPriceCents?: number,
+		maxPriceCents?: number,
 		categoryId?: string,
 	) {
 		const hits = await this.elasticsearchService.search({
@@ -79,8 +79,8 @@ export class SearchService implements OnModuleInit {
 							]
 						: [{ match_all: {} }],
 					filter: [
-						...(minPrice !== undefined ? [{ range: { price: { gte: minPrice } } }] : []),
-						...(maxPrice !== undefined ? [{ range: { price: { lte: maxPrice } } }] : []),
+						...(minPriceCents !== undefined ? [{ range: { priceCents: { gte: minPriceCents } } }] : []),
+						...(maxPriceCents !== undefined ? [{ range: { priceCents: { lte: maxPriceCents } } }] : []),
 						...(categoryId !== undefined ? [{ term: { categoryId } }] : [])
 					]
 				}
