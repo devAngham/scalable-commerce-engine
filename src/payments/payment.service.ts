@@ -21,7 +21,7 @@ export class PaymentService {
 
   async createPaymentIndent(orderId: string) {
     const existOrder = await this.prisma.order.findUnique(
-      { where: { id: orderId }}
+      { where: { id: orderId }},
     );
     if (!existOrder) {
       throw new NotFoundException('Order not exist');
@@ -31,6 +31,10 @@ export class PaymentService {
 
     if (status === 'COMPLETED') {
       throw new BadRequestException('Order already completed');
+    }
+
+    if (status === 'PAYMENT_PENDING') {
+      throw new BadRequestException('Payment already in progress');
     }
 
     if (status === 'CANCELLED') {
@@ -45,6 +49,10 @@ export class PaymentService {
       enabled: true,
       allow_redirects: 'never',   // يمنع طرق الدفع اللي تحتاج redirect
         },
+    });
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: 'PAYMENT_PENDING' },
     });
     return { clientSecret: result.client_secret }
   }
@@ -69,7 +77,7 @@ export class PaymentService {
 
         // race-condition prevention: if the order is already completed or cancelled,
         // we don't want to process it again, so we return early.
-        if(!order || order.status !== 'PENDING') return { received: true };
+        if(!order || order.status !== 'PAYMENT_PENDING') return { received: true };
 
         await this.prisma.order.update({
           where: { id: orderId },
@@ -88,7 +96,7 @@ export class PaymentService {
         where: { id: orderId }
       });
 
-      if (!order || order.status !== 'PENDING') return { received: true };
+      if (!order || order.status !== 'PAYMENT_PENDING') return { received: true };
         const newAttempts = order.paymentAttempts + 1;
       if (newAttempts >= 3) {
         await this.prisma.$transaction(async (tx) => {
@@ -125,7 +133,7 @@ export class PaymentService {
           });
           this.notificationsService.sendNotification(order.userId, {
             title: 'Order Updated',
-            message: `Your order status changed to ${newAttempts >= 3 ? 'CANCELLED' : 'PENDING'}.`,
+            message: `Payment failed. You have ${3 - newAttempts} attempt(s) remaining.`,
             type: 'ORDER_UPDATE',
           });
         }
