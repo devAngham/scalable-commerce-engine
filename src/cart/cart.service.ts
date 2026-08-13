@@ -19,23 +19,21 @@ export class CartService {
     }
 
     const cartKey = `cart:${userId}`;
-    const cartItem = await this.prisma.cartItem.findUnique({
-      where: { userId_productId: { userId, productId } },
-    });
-    if (cartItem) {
-      const newQuantity = cartItem.quantity + quantity;
-      if (product.stock < newQuantity) {
+      await this.prisma.cartItem.upsert({
+        where: { userId_productId: { userId, productId } },
+        update: { quantity: { increment: quantity } },
+        create: { userId, productId, quantity },
+      });
+      const updatedCartItem = await this.prisma.cartItem.findUnique({
+        where: { userId_productId: { userId, productId } },
+      });
+      if (updatedCartItem && updatedCartItem.quantity > product.stock) {
+        await this.prisma.cartItem.update({
+          where: { userId_productId: { userId, productId } },
+          data: { quantity: product.stock },
+        });
         throw new BadRequestException(`Insufficient stock for product ${productId}`);
       }
-      await this.prisma.cartItem.update({
-        where: { id: cartItem.id },
-        data: { quantity: newQuantity },
-      });
-    } else {
-      await this.prisma.cartItem.create({
-        data: { userId, productId, quantity },
-      });
-    }
     await this.redisService.delX(cartKey);
   }
 
