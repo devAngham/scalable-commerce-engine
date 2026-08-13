@@ -65,7 +65,13 @@ export class PaymentService {
       const orderId = paymentIntent.metadata?.orderId;
 
       if (result.type === 'payment_intent.succeeded') {
-        const order = await this.prisma.order.update({
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+
+        // race-condition prevention: if the order is already completed or cancelled,
+        // we don't want to process it again, so we return early.
+        if(!order || order.status !== 'PENDING') return { received: true };
+
+        await this.prisma.order.update({
           where: { id: orderId },
           data: { status: 'COMPLETED', paymentIntentId: paymentIntent.id }
         });
