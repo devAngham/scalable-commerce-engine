@@ -39,6 +39,12 @@ export class AuthController {
   }
 
   @Post('verify-email')
+  @Throttle({
+    default: {
+      ttl: 600000, // 10 minutes
+      limit: 5, // 5 tries per 10 minutes
+    },
+  })
   verifyEmail(@Body() dto: { email: string; code: string }) {
     return this.authService.verifyEmail(dto.email, dto.code);
   }
