@@ -162,12 +162,6 @@ export class PaymentService {
       { idempotencyKey: `refund-${orderId}` }
     );
 
-    this.notificationsService.sendNotification(order.userId, {
-      title: 'Order Refunded',
-      message: 'Your order has been refunded successfully.',
-      type: 'ORDER_REFUND',
-    });
-
     // Restore stock for each item — the refunded order's products return to inventory
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({
@@ -186,6 +180,14 @@ export class PaymentService {
         });
       }
     });
+
+    
+    this.notificationsService.sendNotification(order.userId, {
+      title: 'Order Refunded',
+      message: 'Your order has been refunded successfully.',
+      type: 'ORDER_REFUND',
+    });
+
     return { message: 'Order refunded successfully', refundId: refund.id };
   }
 }
