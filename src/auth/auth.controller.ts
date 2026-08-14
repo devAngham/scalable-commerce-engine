@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Get, UseGuards } from '@nestjs/common';
+import { Body, Req, Controller, Post, Get, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -46,7 +46,7 @@ export class AuthController {
       limit: 5, // 5 tries per 10 minutes
     },
   })
-  verifyEmail(@Body() dto: { email: string; code: string }, @Request() req: Request) {
+  verifyEmail(@Body() dto: { email: string; code: string }, @Req() req: Request) {
     return this.authService.verifyEmail(dto.email, dto.code, req);
   }
 
@@ -63,11 +63,19 @@ export class AuthController {
 
   @Post('refresh')
   refresh(@Body() dto: TokenDto) {
-    return this.authService.refresh(dto.refreshToken);
+    return this.authService.refresh(dto.refreshToken, dto.sessionId);
   }
 
   @Post('logout')
-  logout(@Body() dto: TokenDto) {
-    return this.authService.logout(dto.refreshToken);
+  @UseGuards(JwtAuthGuard)
+  logout(@Req() req: any, @Body() body: { sessionId: string, refreshToken: string }) {
+    return this.authService.logout(body.refreshToken, body.sessionId);
   }
+
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  logoutAll(@Req() req: any) {
+    return this.authService.logoutAll((req as any).user.id);
+  }
+
 }

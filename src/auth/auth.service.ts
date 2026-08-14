@@ -107,22 +107,30 @@ export class AuthService {
       data: { isEmailVerified: true },
     });
 
+    
     const session = await this.prisma.session.create({
       data: {
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 60 * 1000), // 7 days
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         ip: request.ip || 'unknown',
         userAgent: request.headers['user-agent'] || 'unknown',
       },
     });
+    // cache: session info
     await this.redis.setX(`session:${session.id}`, JSON.stringify(session), 7 * 24 * 60 * 60 ); // 7 days
 
+    // cache: refresh token
+    const refreshToken = await this.createRefreshToken(user.id, user.email);
+    await this.redis.setX(`refresh:${user.id}:${session.id}`, refreshToken, 7 * 24 * 60 * 60);
+
+    // clear: verification code & attempts no.
     await this.redis.delX(`email-verification:${email}`);
     await this.redis.delX(attemptKey); // Reset attempts on successful verification
+
     return {
       message: 'Email verified successfully',
       accessToken: await this.createAccessToken(user.id, user.email),
-      refreshToken: await this.createRefreshToken(user.id, user.email),
+      refreshToken,
       sessionId: session.id,
     };
   }
@@ -143,21 +151,52 @@ export class AuthService {
     return { message: 'Verification code resent' };
   }
 
-  async refresh(refreshToken: string): Promise<{ accessToken: string }> {
+  async refresh(refreshToken: string, sessionId: string): Promise<any> {
     const payload = this.verifyRefreshToken(refreshToken);
+    const userId = payload.sub;
 
-    const stored = await this.redis.getX(`refresh:${payload.sub}`);
+    const stored = await this.redis.getX(`refresh:${userId}:${sessionId}`);
   if (!stored || stored !== refreshToken) {
     throw new UnauthorizedException('Refresh token is invalid or expired');
   }
 
-    return { accessToken: await this.createAccessToken(payload.sub, payload.email) };
+  await this.redis.delX(`refresh:${userId}:${sessionId}`);
+  const newRefreshToken = await this.createRefreshToken(userId, payload.email);
+
+  await this.redis.setX(
+    `refresh:${userId}:${sessionId}`,
+    newRefreshToken,
+    7 * 24 * 60 * 60
+  );
+    return {
+      accessToken: await this.createAccessToken(userId, payload.email),
+      refreshToken: newRefreshToken,
+      sessionId,
+    };
   }
 
-  async logout(_refreshToken: string): Promise<{ message: string; }> {
+  async logout(_refreshToken: string, sessionId: string): Promise<{ message: string; }> {
     const payload = this.verifyRefreshToken(_refreshToken);
-    await this.redis.delX(`refresh:${payload.sub}`);
+    // await this.redis.delX(`refresh:${payload.sub}`);
+    await this.redis.delX(`refresh:${payload.sub}:session:${sessionId}`);
+    await this.prisma.session.delete({ where: { id: sessionId } });
     return { message: 'Logged out successfully' };
+  }
+
+  async logoutAll(userId: string): Promise<{ message: string }> {
+    await this.redis.deletePattern(`refresh:${userId}:*`);
+
+    const sessions = await this.prisma.session.findMany({ where: { userId }});
+
+    for (const session of sessions) {
+    await this.redis.delX(`session:${session.id}`);
+  }
+
+    await this.prisma.session.deleteMany({
+      where: { userId },
+    });
+
+    return { message: 'Logged out from all devices successfully' };
   }
 
   private async createAccessToken(userId: string, email: string):  Promise<string> {
