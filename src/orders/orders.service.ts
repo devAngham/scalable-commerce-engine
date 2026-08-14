@@ -16,15 +16,6 @@ export class OrdersService {
 
   async checkout(userId: string): Promise <{ order: any }> {
 
-    const cart = await this.prisma.cartItem.findMany({
-      where: { userId },
-      include: { product: true}
-    });
-
-    if (!cart.length) {
-      throw new NotFoundException('Cart is empty')
-    }
-
     const existingOrder = await this.prisma.order.findFirst({
       where: { userId, status: { in: ['PENDING', 'PAYMENT_PENDING'] } }
     });
@@ -35,6 +26,15 @@ export class OrdersService {
     let totalCents = 0;
 
     const order = await this.prisma.$transaction( async (tx) => {
+
+      const cart = await tx.cartItem.findMany({
+        where: { userId },
+        include: { product: true}
+      });
+
+      if (!cart.length) {
+        throw new NotFoundException('Cart is empty')
+      }
 
       const newOrder = await tx.order.create({
         data: { userId, totalCents, status: 'PENDING' }
