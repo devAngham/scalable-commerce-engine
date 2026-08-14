@@ -25,6 +25,13 @@ export class OrdersService {
       throw new NotFoundException('Cart is empty')
     }
 
+    const existingOrder = await this.prisma.order.findFirst({
+      where: { userId, status: { in: ['PENDING', 'PAYMENT_PENDING'] } }
+    });
+    if (existingOrder) {
+      throw new BadRequestException('You already have a pending order.');
+    }
+
     let totalCents = 0;
 
     const order = await this.prisma.$transaction( async (tx) => {
