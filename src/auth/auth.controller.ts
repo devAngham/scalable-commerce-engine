@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Get, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -45,8 +46,8 @@ export class AuthController {
       limit: 5, // 5 tries per 10 minutes
     },
   })
-  verifyEmail(@Body() dto: { email: string; code: string }) {
-    return this.authService.verifyEmail(dto.email, dto.code);
+  verifyEmail(@Body() dto: { email: string; code: string }, @Request() req: Request) {
+    return this.authService.verifyEmail(dto.email, dto.code, req);
   }
 
   @Post('resend-verification')

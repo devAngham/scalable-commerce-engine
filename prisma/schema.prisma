@@ -30,11 +30,23 @@ model User {
   lastName   String?
   isEmailVerified Boolean @default(false)
   role       UserRole    @default(CUSTOMER)
+  sessions   Session[]
   orders     Order[]
   cartItems  CartItem[]
   reviews    Review[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  @@index([userId])
 }
 
 model Category {
