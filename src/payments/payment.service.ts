@@ -148,13 +148,19 @@ export class PaymentService {
     if (!order) {
       throw new NotFoundException('Order not exist');
     }
+
+    if (order.status === 'REFUNDED') {
+      throw new BadRequestException('Order already refunded');
+    }
+
     if (order.status !== 'COMPLETED' || !order.paymentIntentId) {
       throw new BadRequestException('Only completed orders can be refunded');
     }
 
-    const refund = await this.stripe.refunds.create({
-      payment_intent: order.paymentIntentId,
-    });
+    const refund = await this.stripe.refunds.create(
+      { payment_intent: order.paymentIntentId },
+      { idempotencyKey: `refund-${orderId}` }
+    );
 
     this.notificationsService.sendNotification(order.userId, {
       title: 'Order Refunded',
