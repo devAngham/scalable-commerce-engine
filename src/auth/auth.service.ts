@@ -2,6 +2,7 @@ import { Injectable, ConflictException, InternalServerErrorException, Unauthoriz
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
 import { RedisService as Redis } from '../redis/redis.service';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -47,7 +48,7 @@ export class AuthService {
       },
     });
 
-    const code = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    const code = randomInt(0, 1000000).toString().padStart(6, '0');
     await this.redis.setX(`email-verification:${dto.email}`, code, 10 * 60);
     await this.emailService.sendEmailVerification(dto.email, code);
 
@@ -83,8 +84,20 @@ export class AuthService {
   }
 
   async verifyEmail(email: string, code: string): Promise<{ message: string }> {
+
+    const attemptKey = `email-verification-attempts:${email}`;
+    const attempts = await this.redis.getX(attemptKey);
+
+    if (attempts && parseInt(attempts) >= 5) {
+      await this.redis.setX(attemptKey, attempts, 600); // Reset the TTL to 10 minutes
+      throw new UnauthorizedException('Too many attempts. Please try again later.');
+    }
+
     const storedCode = await this.redis.getX(`email-verification:${email}`);
     if (!storedCode || storedCode !== code) {
+      await this.redis.setX(attemptKey,
+        String(parseInt(attempts || '0') + 1),
+        600); // 10 minutes
       throw new UnauthorizedException('Invalid or expired verification code');
     }
     await this.prisma.user.update({
@@ -92,6 +105,7 @@ export class AuthService {
       data: { isEmailVerified: true },
     });
     await this.redis.delX(`email-verification:${email}`);
+    await this.redis.delX(attemptKey); // Reset attempts on successful verification
     return { message: 'Email verified successfully' };
   }
 
@@ -105,7 +119,7 @@ export class AuthService {
     if (user.isEmailVerified) {
       return { message: 'Email is already verified' };
     }
-    const code = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    const code = randomInt(0, 1000000).toString().padStart(6, '0');
     await this.redis.setX(`email-verification:${email}`, code, 10 * 60);
     await this.emailService.sendEmailVerification(email, code);
     return { message: 'Verification code resent' };
