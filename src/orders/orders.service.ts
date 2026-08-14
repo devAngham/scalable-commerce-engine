@@ -25,7 +25,7 @@ export class OrdersService {
 
     let totalCents = 0;
 
-    const order = await this.prisma.$transaction( async (tx) => {
+    const { order, cart} = await this.prisma.$transaction( async (tx) => {
 
       const cart = await tx.cartItem.findMany({
         where: { userId },
@@ -77,7 +77,7 @@ export class OrdersService {
     await tx.cartItem.deleteMany({ where: { userId } });
 
     newOrder.totalCents = totalCents;
-    return newOrder;
+    return { order: newOrder, cart };
   });
 
   await this.redisService.delX(`cart:${userId}`);

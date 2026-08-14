@@ -5,6 +5,8 @@ import * as bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { RedisService as Redis } from '../redis/redis.service';
 
+import { Request } from 'express';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -26,7 +28,7 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ message: string }> {
+  async register(dto: RegisterDto): Promise<any> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -52,7 +54,7 @@ export class AuthService {
     await this.redis.setX(`email-verification:${dto.email}`, code, 10 * 60);
     await this.emailService.sendEmailVerification(dto.email, code);
 
-    return {
+     return {
       message: 'Registration successful',
     };
   }
@@ -83,7 +85,7 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(email: string, code: string): Promise<{ message: string }> {
+  async verifyEmail(email: string, code: string, request: Request): Promise<any> {
 
     const attemptKey = `email-verification-attempts:${email}`;
     const attempts = await this.redis.getX(attemptKey);
@@ -100,13 +102,29 @@ export class AuthService {
         600); // 10 minutes
       throw new UnauthorizedException('Invalid or expired verification code');
     }
-    await this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { email },
       data: { isEmailVerified: true },
     });
+
+    const session = await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 60 * 1000), // 7 days
+        ip: request.ip || 'unknown',
+        userAgent: request.headers['user-agent'] || 'unknown',
+      },
+    });
+    await this.redis.setX(`session:${session.id}`, JSON.stringify(session), 7 * 24 * 60 * 60 ); // 7 days
+
     await this.redis.delX(`email-verification:${email}`);
     await this.redis.delX(attemptKey); // Reset attempts on successful verification
-    return { message: 'Email verified successfully' };
+    return {
+      message: 'Email verified successfully',
+      accessToken: await this.createAccessToken(user.id, user.email),
+      refreshToken: await this.createRefreshToken(user.id, user.email),
+      sessionId: session.id,
+    };
   }
 
   async resendVerification(email: string): Promise<{ message: string }> {
