@@ -29,9 +29,24 @@ export class RedisService implements OnModuleInit {
 	}
 
   async deletePattern(pattern: string): Promise<void> {
-    const keys = await this.redis.keys(pattern);
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
-    }
+		const stream = this.redis.scanStream({
+			match: pattern,
+			count: 100,
+		});
+
+		const pipeline = this.redis.pipeline();
+
+		let hasKeys = false;
+
+		if (stream) {
+			for await (const keys of stream) {
+				if (keys.length) {
+					pipeline.del(...keys);
+					hasKeys = true;
+				}
+			}
+		}
+
+    if (hasKeys) await pipeline.exec();
   }
 }
