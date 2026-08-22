@@ -35,8 +35,8 @@ export class AuthController {
       limit: 5,
     },
   })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.authService.login(dto, req);
   }
 
   @Post('verify-email')
