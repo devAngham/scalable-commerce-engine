@@ -59,7 +59,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto): Promise<{ accessToken: string; refreshToken: string }> {
+  async login(dto: LoginDto, request: Request): Promise<any> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -77,11 +77,23 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email first');
     }
 
+    const session = await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        ip: request.ip || 'unknown',
+        userAgent: request.headers['user-agent'] || 'unknown'
+      },
+    });
+    await this.redis.setX(`session:${session.id}`, JSON.stringify(session), 7 * 24 * 60 * 60);
+
     const refreshToken = this.createRefreshToken(user.id, user.email);
-    await this.redis.setX(`refresh:${user.id}`, refreshToken, 7 * 24 * 60 * 60);
+    await this.redis.setX(`refresh:${user.id}:${session.id}`, refreshToken, 7 * 24 * 60 * 60);
+
     return {
       accessToken: await this.createAccessToken(user.id, user.email),
       refreshToken,
+      sessionId: session.id,
     };
   }
 
@@ -178,7 +190,7 @@ export class AuthService {
   async logout(_refreshToken: string, sessionId: string): Promise<{ message: string; }> {
     const payload = this.verifyRefreshToken(_refreshToken);
     // await this.redis.delX(`refresh:${payload.sub}`);
-    await this.redis.delX(`refresh:${payload.sub}:session:${sessionId}`);
+    await this.redis.delX(`refresh:${payload.sub}:${sessionId}`);
     await this.prisma.session.delete({ where: { id: sessionId } });
     return { message: 'Logged out successfully' };
   }
