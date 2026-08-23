@@ -69,28 +69,55 @@ export class AiService {
       return { recommendations: 'Product not found.' };
     }
 
+    const availableProducts = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        id: { not: productId },
+        stock: { gt: 0 },
+      },
+      take: 20,
+      include: { category: true },
+    });
+
+    const productList = availableProducts
+      .map(p =>  `- ${p.name} (ID: ${p.id}, Category: ${p.category.name}, Price: $${(p.priceCents/100).toFixed(2)})`)
+      .join('\n');  
+
     const completion = await this.groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful e-commerce assistant that recommends products.',
+          content: 'You recommend products from a fixed catalog. Return ONLY product IDs, comma-separated, no explanation.',
         },
         {
           role: 'user',
-          content: `A customer is viewing: ${product.name}
-                    Category: ${product.category.name}
-                    Price: $${(product.priceCents / 100).toFixed(2)}
-                    Description: ${product.description}
-                    Suggest 3 similar or complementary products. Be specific and brief.`,
+          content: `Customer is viewing: ${product.name} (${product.category.name})
+          
+          Available products:
+          ${productList}
+
+          Return 3 product IDs from the list above that best complement the current product. Format: id1,id2,id3`,
+
         },
       ],
       max_tokens: 200,
     });
 
+    // Parse IDs
+    const returnedIds = completion.choices[0].message.content
+      ?.split(',')
+      .map(id => id.trim())
+      .filter(Boolean) || [];
+
+    // تحقق إن كل الـ IDs موجودة فعلاً (validation)
+    const recommendedProducts = availableProducts.filter(p => 
+      returnedIds.includes(p.id)
+    );
+
     return {
       basedOn: product.name,
-      recommendations: completion.choices[0].message.content,
+      recommendations: recommendedProducts,
     };
   }
 
