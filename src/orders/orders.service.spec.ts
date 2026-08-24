@@ -77,4 +77,38 @@ describe('OrdersService', () => {
     // Call the checkout method and expect it to throw a BadRequestException
     await expect(ordersService.checkout('user-id')).rejects.toThrow('You already have a pending order');
   });
+
+  it('should throw BadRequestException if a product is inactive', async () => {
+    // Mock the findFirst method to return null, simulating no existing order
+    prismaServiceMock.order.findFirst.mockResolvedValue(null);
+
+    // Mock the transaction function to call the provided function with the mock PrismaService
+    prismaServiceMock.$transaction.mockImplementation(async (fn: any) => {
+      return fn(prismaServiceMock);
+    });
+
+    // Mock the order creation to return a new order
+    prismaServiceMock.order.create.mockResolvedValue({
+      id: 'new-order-id',
+      userId: 'user-id',
+      totalCents: 0,
+      status: 'PENDING',
+    });
+
+    // Mock the cart item lookup to return items with an inactive product
+    prismaServiceMock.cartItem.findMany.mockResolvedValue([
+      {
+        productId: 'product-1',
+        quantity: 1,
+        product: {
+          name: 'iPhone',
+          priceCents: 99999,
+          isActive: false,  // inactive product
+        },
+      },
+    ]);
+
+    // Call the checkout method and expect it to throw a BadRequestException for inactive product
+    await expect(ordersService.checkout('user-id')).rejects.toThrow('no longer available');
+  });
 });
