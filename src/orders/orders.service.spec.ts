@@ -50,7 +50,19 @@ describe('OrdersService', () => {
   }
   );
 
-  it('should be ok', () => {
-    expect(ordersService).toBeDefined();
-  })
+  it('should throw NotFoundException if cart is empty',  async() => {
+
+    // Mock the findFirst method to return null, simulating no existing order
+    prismaServiceMock.order.findFirst.mockResolvedValueOnce(null);
+
+    // Mock the transaction function to call the provided function with the mock PrismaService
+    prismaServiceMock.$transaction.mockImplementation(async (fn: any) => {
+      return fn(prismaServiceMock);
+    });
+
+    prismaServiceMock.cartItem.findMany.mockResolvedValue([]); // empty cart
+
+    // Call the checkout method and expect it to throw a NotFoundException
+    await expect(ordersService.checkout('user-id')).rejects.toThrow('Cart is empty');
+  });
 });
