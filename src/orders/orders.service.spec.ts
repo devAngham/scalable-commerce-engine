@@ -65,4 +65,16 @@ describe('OrdersService', () => {
     // Call the checkout method and expect it to throw a NotFoundException
     await expect(ordersService.checkout('user-id')).rejects.toThrow('Cart is empty');
   });
+
+  it('should throw BadRequestException if user has an existing pending order', async () => {
+    // Mock the findFirst method to return an existing order
+    prismaServiceMock.order.findFirst.mockResolvedValue({
+      id: 'existing-order-id',
+      userId: 'user-id',
+      status: 'PENDING',
+    });
+
+    // Call the checkout method and expect it to throw a BadRequestException
+    await expect(ordersService.checkout('user-id')).rejects.toThrow('You already have a pending order');
+  });
 });
