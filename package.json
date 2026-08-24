@@ -7,7 +7,9 @@
     "start": "node dist/main.js",
     "start:dev": "ts-node -r tsconfig-paths/register src/main.ts",
     "lint": "echo \"No lint configured\"",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.11.0",
@@ -42,14 +44,35 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
+    "@nestjs/testing": "^10.4.22",
     "@types/bcryptjs": "^2.4.6",
+    "@types/jest": "^29.5.14",
     "@types/multer": "^2.1.0",
     "@types/node": "^20.11.0",
     "@types/nodemailer": "^8.0.0",
     "@types/passport-jwt": "^3.0.8",
+    "jest": "^30.4.2",
     "prisma": "^5.0.0",
+    "ts-jest": "^29.4.12",
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
   }
 }
