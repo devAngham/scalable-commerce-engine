@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
   cors: {
@@ -24,7 +24,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
-  handleConnection(client: any) {
+  handleConnection(client: Socket) {
    try {
       console.log(`Client connected: ${client.id}`);
       const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
@@ -41,7 +41,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  handleDisconnect(client: any) {
+  handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
   }
 }

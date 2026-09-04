@@ -17,6 +17,12 @@ interface JwtPayload {
   email: string;
 }
 
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  sessionId: string;
+}
+
 @Injectable()
 export class AuthService {
 
@@ -28,7 +34,7 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<any> {
+  async register(dto: RegisterDto): Promise<{ message: string }> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -41,7 +47,7 @@ export class AuthService {
     const [firstName, ...rest] = dto.name.trim().split(' ');
     const lastName = rest.length > 0 ? rest.join(' ') : undefined;
 
-    const user = await this.prisma.user.create({
+    await this.prisma.user.create({
       data: {
         email: dto.email,
         password: hashedPassword,
@@ -59,7 +65,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto, request: Request): Promise<any> {
+  async login(dto: LoginDto, request: Request): Promise<AuthTokens> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -97,7 +103,7 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(email: string, code: string, request: Request): Promise<any> {
+  async verifyEmail(email: string, code: string, request: Request): Promise<AuthTokens & { message: string }> {
 
     const attemptKey = `email-verification-attempts:${email}`;
     const attempts = await this.redis.getX(attemptKey);
@@ -163,7 +169,7 @@ export class AuthService {
     return { message: 'Verification code resent' };
   }
 
-  async refresh(refreshToken: string, sessionId: string): Promise<any> {
+  async refresh(refreshToken: string, sessionId: string): Promise<AuthTokens> {
     const payload = this.verifyRefreshToken(refreshToken);
     const userId = payload.sub;
 

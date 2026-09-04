@@ -6,6 +6,7 @@ import { LoginDto } from './dto/login.dto';
 import { TokenDto } from './dto/token.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler/dist';
+import { AuthenticatedRequest } from '../common/types/authenticated-request.type';
 
 @Controller('auth')
 export class AuthController {
@@ -68,14 +69,14 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
-  logout(@Req() req: any, @Body() body: { sessionId: string, refreshToken: string }) {
+  logout(@Body() body: { sessionId: string, refreshToken: string }) {
     return this.authService.logout(body.refreshToken, body.sessionId);
   }
 
   @Post('logout-all')
   @UseGuards(JwtAuthGuard)
-  logoutAll(@Req() req: any) {
-    return this.authService.logoutAll((req as any).user.id);
+  logoutAll(@Req() req: AuthenticatedRequest) {
+    return this.authService.logoutAll(req.user.id);
   }
 
 }

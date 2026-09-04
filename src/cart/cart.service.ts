@@ -1,7 +1,10 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
+
+type CartItemWithProduct = Prisma.CartItemGetPayload<{ include: { product: true } }>;
 
 @Injectable()
 export class CartService {
@@ -37,7 +40,7 @@ export class CartService {
     await this.redisService.delX(cartKey);
   }
 
-  async getCart(userId: string): Promise <{cart: any[]}> {
+  async getCart(userId: string): Promise <{cart: CartItemWithProduct[]}> {
     const cartKey = `cart:${userId}`;
 
     const cached = await this.redisService.getX(cartKey);
