@@ -73,21 +73,35 @@ export class PaymentService {
       const orderId = paymentIntent.metadata?.orderId;
 
       if (result.type === 'payment_intent.succeeded') {
-        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        const lockedOrder = await this.prisma.$transaction(async (tx) => {
+          const rows = await tx.$queryRaw<{ id: string; status: string; userId: string }[]>`
+            SELECT id, status, "userId" FROM "Order" WHERE id = ${orderId} FOR UPDATE
+          `;
+          const order = rows[0];
 
-        // race-condition prevention: if the order is already completed or cancelled,
-        // we don't want to process it again, so we return early.
-        if(!order || order.status !== 'PAYMENT_PENDING') return { received: true };
+          // race-condition prevention: if the order is already completed or cancelled,
+          // we don't want to process it again, so we return early.
+          if (!order || order.status !== 'PAYMENT_PENDING') return null;
 
-        await this.prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'COMPLETED', paymentIntentId: paymentIntent.id }
+          await tx.order.update({
+            where: { id: orderId },
+            data: { status: 'COMPLETED', paymentIntentId: paymentIntent.id }
+          });
+
+          return order;
         });
-        this.notificationsService.sendNotification(order.userId, {
-          title: 'Payment Successful',
-          message: 'Your order has been paid successfully.',
-          type: 'PAYMENT_SUCCESS'
-        });
+
+        if (lockedOrder) {
+          // Sent outside the transaction: notification delivery is external I/O
+          // (network call to the notifications provider) that shouldn't hold the
+          // row lock or DB connection open, and a failure here must not roll back
+          // the COMPLETED status that already committed.
+          this.notificationsService.sendNotification(lockedOrder.userId, {
+            title: 'Payment Successful',
+            message: 'Your order has been paid successfully.',
+            type: 'PAYMENT_SUCCESS'
+          });
+        }
       }
 
       if (result.type === 'payment_intent.payment_failed') {
