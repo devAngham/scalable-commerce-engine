@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Product } from "@prisma/client";
 import { CreateProductDto } from "./dto/create-product.dto";
-import { PrismaService } from "../prisma/prisma.service"; 
+import { PrismaService } from "../prisma/prisma.service";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { RedisService } from "../redis/redis.service";
 import { SearchService } from "../search/search.service";
@@ -14,7 +15,7 @@ export class ProductsService {
     private searchService: SearchService
   ) {}
 
-  async createProduct( dto: CreateProductDto ): Promise<{ product: any }> {
+  async createProduct( dto: CreateProductDto ): Promise<{ product: Product }> {
     const existingProduct = await this.prisma.product.findUnique({
       where: { sku: dto.sku },
     });
@@ -29,7 +30,7 @@ export class ProductsService {
     return { product };
   }
 
-  async findAll(): Promise<{ products: any[] }> {
+  async findAll(): Promise<{ products: Product[] }> {
     const cachedProducts = await this.redisService.getX('products:all');
     if (cachedProducts) {
       return { products: JSON.parse(cachedProducts) };
@@ -42,7 +43,7 @@ export class ProductsService {
     return { products };
   }
 
-  async findOne(id: string): Promise<{ product: any }> {
+  async findOne(id: string): Promise<{ product: Product }> {
     const cachedProduct = await this.redisService.getX(`product:${id}`);
     if (cachedProduct) {
       return { product: JSON.parse(cachedProduct) };
@@ -58,7 +59,7 @@ export class ProductsService {
     return { product };
   }
 
-  async updateProduct(id: string, dto: UpdateProductDto): Promise<{ product: any }> {
+  async updateProduct(id: string, dto: UpdateProductDto): Promise<{ product: Product }> {
     const existingProduct = await this.prisma.product.findUnique({
       where: { id },
     });

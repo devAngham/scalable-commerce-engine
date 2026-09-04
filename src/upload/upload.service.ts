@@ -34,7 +34,7 @@ export class UploadService {
 
   async deleteImage(publicId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      cloudinary.uploader.destroy(publicId, (error, result) => {
+      cloudinary.uploader.destroy(publicId, (error) => {
         if (error) {
           console.error('Error deleting image from Cloudinary:', error);
           reject(new Error('Failed to delete image'));

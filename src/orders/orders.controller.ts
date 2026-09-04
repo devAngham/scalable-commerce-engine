@@ -12,6 +12,7 @@ import { OrdersService } from "./orders.service";
 import { Roles } from "../common/decorators/roles.decorator";
 import { Role } from "../common/decorators/roles.decorator";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
+import { AuthenticatedRequest } from "../common/types/authenticated-request.type";
 
 @Controller('orders')
 export class OrdersController {
@@ -20,7 +21,7 @@ export class OrdersController {
 
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
-  checkout(@Request() req: any) {
+  checkout(@Request() req: AuthenticatedRequest) {
     return this.ordersService.checkout(req.user.id);
   }
 

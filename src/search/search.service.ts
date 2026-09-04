@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
+import { Product } from '@prisma/client';
 
 
 @Injectable()
@@ -33,7 +34,7 @@ export class SearchService implements OnModuleInit {
 		}
 	}
 
-	async indexProduct(product: any) {
+	async indexProduct(product: Product) {
 		return this.elasticsearchService.index({
 			index: this.index,
 			id: product.id,
@@ -54,7 +55,7 @@ export class SearchService implements OnModuleInit {
 			index: this.index,
 			id: productId,
 		})
-		.catch(err => () => null); 
+		.catch(() => null); 
 	}
 
 	async searchProducts(

@@ -27,7 +27,7 @@ export class PaymentService {
       throw new NotFoundException('Order not exist');
     }
 
-    let { totalCents, id, status } = existOrder;
+    const { totalCents, id, status } = existOrder;
 
     if (status === 'COMPLETED') {
       throw new BadRequestException('Order already completed');
@@ -57,7 +57,7 @@ export class PaymentService {
     return { clientSecret: result.client_secret }
   }
 
-  async verifyPayment(raw: any, signatureHeader: string) {
+  async verifyPayment(raw: string | Buffer, signatureHeader: string) {
     let result;
     try {
       result = await this.stripe.webhooks.constructEvent(
@@ -69,7 +69,7 @@ export class PaymentService {
       throw new BadRequestException(`Webhook signature verification failed`);
     }
 
-      const paymentIntent = result.data.object as any;
+      const paymentIntent = result.data.object as Stripe.PaymentIntent;
       const orderId = paymentIntent.metadata?.orderId;
 
       if (result.type === 'payment_intent.succeeded') {
