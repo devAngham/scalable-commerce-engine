@@ -21,6 +21,18 @@ enum OrderStatus {
   CANCELLED
   REFUNDED
 }
+/// Mirrors Stripe PaymentIntent status values verbatim, including the
+/// single-l spelling of CANCELED. Do not "correct" it — the mapping from
+/// Stripe must stay a direct uppercase transform with no exceptions.
+enum PaymentStatus {
+  REQUIRES_PAYMENT_METHOD
+  REQUIRES_CONFIRMATION
+  REQUIRES_ACTION
+  PROCESSING
+  REQUIRES_CAPTURE
+  CANCELED
+  SUCCEEDED
+}
 
 model User {
   id         String      @id @default(uuid())
@@ -88,11 +100,86 @@ model Order {
   items      OrderItem[]
   paymentAttempts Int @default(0)
   paymentIntentId String?
+  payments   Payment[]
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   @@index([userId])
   @@index([status])
   @@index([userId, status])
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  order                 Order         @relation(fields: [orderId], references: [id])
+  orderId               String
+  stripePaymentIntentId String        @unique
+  // CHECK ("amountCents" > 0) is not expressible in schema.prisma (no
+  // @check attribute in this Prisma version) — add it by hand to the
+  // migration.sql when the migration is created.
+  amountCents           Int
+  // VARCHAR(3) is expressible here; the regex format check,
+  // CHECK (currency ~ '^[A-Z]{3}$'), is not — add it by hand to the
+  // migration.sql when the migration is created.
+  currency              String        @db.VarChar(3)
+  status                PaymentStatus @default(REQUIRES_PAYMENT_METHOD)
+  providerFeeCents      Int?
+  // Mirrors Stripe's last_payment_error. Stripe has no FAILED status: a
+  // declined attempt reverts the PaymentIntent to REQUIRES_PAYMENT_METHOD,
+  // so these are the only record of what the last failure actually was.
+  lastFailureCode       String?
+  lastFailureMessage    String?
+  settledAt             DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
+enum WebhookEventStatus {
+  PENDING
+  PROCESSED
+  FAILED        // retryable: attempts still below the cap
+  DEAD_LETTERED // terminal: will not be retried
+}
+
+model WebhookEvent {
+  id               String    @id @default(uuid())
+
+  // Received facts — what Stripe sent. Immutable forever once written;
+  // enforced by a BEFORE UPDATE trigger in the migration, not just by
+  // convention. charge.* payloads carry payment_method_details (last4,
+  // brand, expiry) — cardholder data under PCI scope. Never log this
+  // column; access to it must be access-controlled.
+  stripeEventId    String    @unique
+  type             String
+  payload          Json
+  stripeCreatedAt  DateTime
+  receivedAt       DateTime  @default(now())
+
+  // Retention policy, not a Stripe fact — writable (e.g. to extend a legal
+  // hold), and outside the trigger's lock. 400 days, not a shorter window:
+  // a customer can dispute a charge months later, and this event is the
+  // evidence for that dispute — destroying it early would remove our own
+  // defence. NULL means indefinite retention, not "unset" or a bug.
+  expiresAt        DateTime? @default(dbgenerated("((now() AT TIME ZONE 'UTC') + interval '400 days')"))
+
+  // Processing state — mutable, this is what changes as we work the event.
+  status           WebhookEventStatus @default(PENDING)
+  processedAt      DateTime?
+  processingError  String?
+  attempts         Int       @default(0)
+
+  // Derived query accessor extracted from payload at write time. payload
+  // stays authoritative; this can be recomputed/backfilled independently.
+  orderId          String?
+
+  // Load-bearing for the sweep job, not a convenience index: a processing
+  // failure returns 2xx to Stripe (so Stripe won't retry it), which moves
+  // retry responsibility entirely to us. This index is what makes "find
+  // PENDING/FAILED events older than X" a cheap lookup instead of a scan.
+  @@index([status, receivedAt])
+  @@index([type, receivedAt])
+  @@index([orderId])
 }
 
 model OrderItem {
